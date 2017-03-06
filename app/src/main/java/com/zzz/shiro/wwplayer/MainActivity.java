@@ -1,111 +1,188 @@
 package com.zzz.shiro.wwplayer;
 
-import android.os.Build;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentTransaction;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.nineoldandroids.view.animation.AnimatorProxy;
+import com.zzz.shiro.wwplayer.fragment.LocalFragment;
+import com.zzz.shiro.wwplayer.fragment.MainFragment;
+import com.zzz.shiro.wwplayer.fragment.PlayListFragment;
+import com.zzz.shiro.wwplayer.utils.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity
         {
-
+    private String className = "MainActivity";
     private ViewPager viewPager;
     private FragmentPagerAdapter adapter;
     private List<Fragment> fragmentList;
-    private TestFragment testFragment1;
-    private TestFragment testFragment2;
-    private TestFragment testFragment3;
-    private TestFragment testFragment4;
-    private TestFragment testFragment5;
-    private TestFragment testFragment6;
+    private MainFragment mainFragment;
+
+    private LocalFragment myFragment;
+    private PlayListFragment myFragment2;
     private boolean fragmentsUpdateFlag[] = {false, false, false, false, false};
 
-
-
-
+    private static final int PERMISSION_REQUEST_CODE = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         setSupportActionBar((Toolbar) findViewById(R.id.main_toolbar));
+        if(getSupportActionBar() != null){
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);//開啟返回鍵
+        }
 
         initViewPager();
+
+        if (checkPermission()) {
+            Log.e("value", "Permission already Granted, Now you can save image.");
+        } else {
+            requestPermission();
+        }
+
+
     }
 
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case android.R.id.home:
+                Log.d("","按到了");
+
+                Fragment ff= fragmentList.get(0);
+                if (ff instanceof LocalFragment || ff instanceof PlayListFragment) {
+                    //设置fragment2的tag为true
+                    fragmentsUpdateFlag[0] = true;
+                    //替换fragment
+                    fragmentList.set(0, mainFragment);
+                    //刷新
+                    adapter.notifyDataSetChanged();
+
+                }
+
+
+
+
+                return true;
+
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
 
     private void initViewPager() {
         viewPager = (ViewPager) findViewById(R.id.id_vp);
 
-        testFragment1 = TestFragment.getFragment("1");
-        testFragment2 = TestFragment.getFragment("2");
-        testFragment3 = TestFragment.getFragment("3");
-        testFragment4 = TestFragment.getFragment("4");
-        testFragment5 = TestFragment.getFragment("5");
-
-        testFragment6 = TestFragment.getFragment("6");
+        mainFragment = MainFragment.getFragment("1");
+        myFragment = new LocalFragment();
+        myFragment2 = new PlayListFragment();
 
         fragmentList = new ArrayList<>();
-        fragmentList.add(testFragment1);
-        fragmentList.add(testFragment2);
-        fragmentList.add(testFragment3);
-        fragmentList.add(testFragment4);
-        fragmentList.add(testFragment5);
+        fragmentList.add(mainFragment);
+
 
         adapter = new MyAdapter(getSupportFragmentManager());
         viewPager.setOffscreenPageLimit(5);
         viewPager.setAdapter(adapter);
 
-        testFragment2.setTransListener(new TestFragment.onTranslateClick() {
+
+        mainFragment.setChangeFgmtListener(new MainFragment.onChangeFgmtClick() {
             @Override
-            public void onClick(String msg) {
-                //点击切换按钮
-                //设置fragment2的tag为true
-                fragmentsUpdateFlag[1] = true;
-                //替换fragment
-                fragmentList.set(1, testFragment6);
+            public void onClick(View view) {
+                //點擊切換按鈕
+                //設置fragment2的tag為true
+                fragmentsUpdateFlag[0] = true;
+
+                if(view.getId()==R.id.ib_local){//本地
+
+                    //給參數
+                    Bundle bundle2 = new Bundle();
+                    bundle2.putString(Constants.BundleId.playList,null);
+                    myFragment.setArguments(bundle2);
+
+                    fragmentList.set(0, myFragment); //替換fragment
+                }
+                else if(view.getId()==R.id.ib_list){//列表
+                    //替換fragment
+                    fragmentList.set(0, myFragment2);
+                }
+
                 adapter.notifyDataSetChanged();
             }
         });
-        testFragment6.setTransListener(new TestFragment.onTranslateClick() {
+
+        myFragment2.setChangeFmtListener(new PlayListFragment.onChangeFmtClick() {
             @Override
-            public void onClick(String msg) {
-                //点击切换按钮
-                //设置fragment2的tag为true
-                fragmentsUpdateFlag[1] = true;
-                //替换fragment
-                fragmentList.set(1, testFragment6);
-                //刷新
+            public void onClick(String listName) {
+                Log.d(className,"listview click");
+
+                //點擊切換按鈕
+                fragmentsUpdateFlag[0] = true;
+
+                //給參數
+                Bundle bundle2 = new Bundle();
+                bundle2.putString(Constants.BundleId.playList,listName);
+                myFragment.setArguments(bundle2);
+
+                fragmentList.set(0, myFragment); //替換fragment
                 adapter.notifyDataSetChanged();
             }
         });
+
+//        testFragment2.setTransListener(new MainFragment.onTranslateClick() {
+//            @Override
+//            public void onClick(String msg) {
+//                //点击切换按钮
+//                //设置fragment2的tag为true
+//                fragmentsUpdateFlag[1] = true;
+//                //替换fragment
+//                fragmentList.set(1, myFragment);
+//                adapter.notifyDataSetChanged();
+//            }
+//        });
+
     }
 
 
-    @Override
-    public void onBackPressed() {
-
-        int count = getFragmentManager().getBackStackEntryCount();
-
-        if (count == 0) {
-            super.onBackPressed();
-            //additional code
+    private boolean checkPermission() {
+        int result = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        if (result == PackageManager.PERMISSION_GRANTED) {
+            return true;
         } else {
-            getFragmentManager().popBackStack();
+            return false;
         }
     }
+
+    private void requestPermission() {
+
+        if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+        } else {
+            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
+        }
+    }
+
+
+
+
+
+
 
     public class MyAdapter extends FragmentPagerAdapter {
 

@@ -1,4 +1,4 @@
-package com.zzz.shiro.wwplayer;
+package com.zzz.shiro.wwplayer.fragment;
 
 
 import android.app.AlertDialog;
@@ -21,6 +21,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
+import com.zzz.shiro.wwplayer.BottomBar;
+import com.zzz.shiro.wwplayer.R;
+import com.zzz.shiro.wwplayer.Song;
 import com.zzz.shiro.wwplayer.adapter.BtnListenerInterface;
 import com.zzz.shiro.wwplayer.adapter.MyRecyclerViewAdapter;
 import com.zzz.shiro.wwplayer.adapter.MyRecyclerViewHolder;
@@ -40,11 +43,12 @@ import java.util.Map;
 /**
  * Created by wc on 2016/8/22.
  */
-public class MyFragment extends Fragment
-    implements MyRecyclerViewAdapter.AdapterOnItemClickListener {
+public class LocalFragment extends Fragment
+    implements MyRecyclerViewAdapter.AdapterOnItemClickInterface {
 
-    private String className = "MyFragment";
+    private String className = "LocalFragment";
     private int idx = 0;
+    private String plName =null;
 
     //CardView List
     private View mView;
@@ -53,14 +57,7 @@ public class MyFragment extends Fragment
     private MyRecyclerViewAdapter mRecyclerViewAdapter;
 
 
-    //MediaPlayer物件
-    private MediaPlayer mediaPlayer;
-
-    private boolean isPause;   //是否為暫停狀態
-
     private LinkedList<Song> songList = null;
-
-
     private static BottomBar bottomBar;
 
 
@@ -70,11 +67,14 @@ public class MyFragment extends Fragment
         super.onCreate(savedInstanceState);
         Log.d(className,"onCreate");
         if (getArguments() != null) {
-            idx = (int) getArguments().get("idx");
+            plName = (String) getArguments().get(Constants.BundleId.playList);
         }
 
-        isPause = true;
 
+
+
+
+        songList = new LinkedList<Song>();
 
 
         if(bottomBar ==null){
@@ -82,18 +82,8 @@ public class MyFragment extends Fragment
         }
 
 
-    }
-
-
-
-    public void initComponent(){
-        Log.d(className,"initComponent");
-        //注意! 如果這邊的getActivity() 改成用inflater.inflate取得的layoutout 會造成set無效
-
 
     }
-
-
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -111,10 +101,11 @@ public class MyFragment extends Fragment
         mRecyclerView = (RecyclerView) mView.findViewById(R.id.id_recyclerview);
 
         configRecyclerView();
-        initComponent();
 
         return mView;
     }
+
+
 
     @Override public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
@@ -124,33 +115,33 @@ public class MyFragment extends Fragment
     private void configRecyclerView() {
 
 
-        switch (idx) {
-            case Constants.Tab_0:
-                mLayoutManager =
-                        new GridLayoutManager(getActivity(), 1, GridLayoutManager.VERTICAL, false);
+        mLayoutManager =
+                new GridLayoutManager(getActivity(), 1, GridLayoutManager.VERTICAL, false);
 
-                getMusics();
-                mRecyclerViewAdapter = new MyRecyclerViewAdapter(getActivity(),songList );
-                mRecyclerView.setAdapter(mRecyclerViewAdapter);
-                mRecyclerView.setLayoutManager(mLayoutManager);
-                mRecyclerViewAdapter.setOnItemClickListener(this);
-                mRecyclerViewAdapter.setBtnClickListener(new BtnListenerInterface() {
-                    @Override
-                    public void onClick(final int position) {
-                        Log.d(className,"btn click "+position);
-
-                        openActionDlg(position);
-                    }
-                });
-
-
-                bottomBar.init();
-                bottomBar.setData(getMusicList(),getMusicMap());
-                closePlayIcon();
-
-                break;
+        if(plName == null){
+            getByLocal(); //取本地all
+        }
+        else{
+            getByPlayList(); //由列表取出
         }
 
+        mRecyclerViewAdapter = new MyRecyclerViewAdapter(getActivity(),songList );
+        mRecyclerView.setAdapter(mRecyclerViewAdapter);
+        mRecyclerView.setLayoutManager(mLayoutManager);
+        mRecyclerViewAdapter.setOnItemClickListener(this);
+        mRecyclerViewAdapter.setBtnClickListener(new BtnListenerInterface() {
+            @Override
+            public void onClick(final int position) {
+                Log.d(className,"btn click "+position);
+
+                openActionDlg(position);
+            }
+        });
+
+
+        bottomBar.init();
+        bottomBar.setData(getMusicList(),getMusicMap());
+        closePlayIcon();
 
     }
 
@@ -171,78 +162,78 @@ public class MyFragment extends Fragment
         image_play.setBackgroundResource(0);
     }
 
-    private void getMusics(){
-        MediaMetadataRetriever metaRetriver = new MediaMetadataRetriever(); //取得媒體
+    public Cursor getRealPathByAudioName(String name) {
+        ContentResolver resolver = getActivity().getContentResolver();
+        String[] proj = {             MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.DISPLAY_NAME,
+                MediaStore.Audio.Media.DATA,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.SIZE};
+        String selection = MediaStore.Audio.Media.DISPLAY_NAME + " = ?";
+
+        String[] selectionArgs = new String[] { name };
+
+        Cursor cursor = resolver.query(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, proj, selection,
+                selectionArgs, null);
+
+        return cursor;
+    }
+
+
+
+    public Cursor getMediasByPath(String path) {
+        ContentResolver resolver = getActivity().getContentResolver();
+        // String
+        // selection=MediaStore.Audio.Media.DATA+" like '/mnt/sdcard/Recording/%'";
+        String selection = MediaStore.Audio.Media.DATA + " like ?";
+        String[] selectionArgs = { path + "%" };
+        // String selection = MediaStore.Audio.Media.DATA + " like " +"'"
+        // +path+"%'";
+        Cursor cursor = resolver.query(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, Constants.AudioProj, selection,
+                selectionArgs, null);
+        return cursor;
+    }
+
+
+    /**
+     * 取得列表的歌
+     */
+    private void getByPlayList(){
+        PlaylistDAO pDao = new PlaylistDAO(getActivity());
+        Playlist pl = pDao.getByName(plName);
+        List<String> list = pl.getMusicList();
+
+
+        for(String str:list){
+            Log.d(className,"歌曲id = "+str);
+
+            Cursor cursor = getMediasByPath(str);
+            fillUp(cursor);
+        }
+    }
+
+
+
+
+    /**
+     * 從本地取出
+     */
+    private void getByLocal(){
+
 
         songList = new LinkedList<Song>();
         ContentResolver contentResolver = getActivity().getContentResolver();
         Uri uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
         Cursor cursor = contentResolver.query(uri, null, null, null, null);
-        if (cursor == null) {
-            Log.d("=======>", "查詢錯誤");
-        } else if (!cursor.moveToFirst()) {
-            Log.d("=======>", "沒有媒體檔");
-        } else {
-            int titleColumn = cursor.getColumnIndex(MediaStore.Audio.Media.TITLE);
-            int idColumn = cursor.getColumnIndex(MediaStore.Audio.Media._ID);
-            int albumColumn = cursor.getColumnIndex(MediaStore.Audio.AudioColumns.ALBUM);
-            int column_index = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA);
-            int singerCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST);
+        fillUp(cursor);
 
-            byte[] picByte;
-            Bitmap songImage = null;
-            long thisId;
-            String thisTitle;
-            String thisAlbum;
-            String pathId;
-            String singer;
-
-            do {
-
-                thisId = cursor.getLong(idColumn);
-                thisTitle = cursor.getString(titleColumn);
-                thisAlbum = cursor.getString(albumColumn);
-                pathId = cursor.getString(column_index);
-                singer = cursor.getString(singerCol);
-
-                Log.d(className,"pathId="+pathId);
-                songImage = null;
-
-                try{
-                    metaRetriver.setDataSource(pathId);
-                }catch(Exception e){
-                    Log.d(className,"error!");
-                    e.printStackTrace();
-                    continue;
-                }
-
-                try {
-                    picByte = metaRetriver.getEmbeddedPicture();
-                    if(picByte!=null){
-
-                        //改圖片大小
-                        songImage = PicUtil.resize(picByte);
-
-                    }
-
-                }
-                catch (Exception e)
-                {
-                    e.printStackTrace();
-                }
-
-
-                Log.d("=======>", "id: " + thisId + ", title: " + thisTitle);
-                songList.add(new Song(thisId, thisTitle, thisAlbum,songImage ,pathId ,singer));
-            } while (cursor.moveToNext());
-
-
-        }
 //        txtSongName.setText("共有 " + songList.size() + " 首歌曲");
 
     }
-
-
 
 
     @Override public void aOnItemClick(View view, final int position, final MyRecyclerViewHolder holder) {
@@ -329,6 +320,77 @@ public class MyFragment extends Fragment
 //        Bitmap bitmap = BitmapFactory.decodeResource(getActivity().getResources(),R.drawable.play);
 //        holder.image_album.setImageBitmap(PicUtil.adjustOpacity(bitmap,40));
 
+    }
+
+    /**
+     * 取出data填到List中
+     * @param cursor
+     */
+    public void fillUp(Cursor cursor){
+        MediaMetadataRetriever metaRetriver = new MediaMetadataRetriever(); //取得媒體
+
+        if (cursor == null) {
+            Log.d("=======>", "查詢錯誤");
+        } else if (!cursor.moveToFirst()) {
+            Log.d("=======>", "沒有媒體檔");
+        } else {
+            int titleColumn = cursor.getColumnIndex(MediaStore.Audio.Media.TITLE);
+            int idColumn = cursor.getColumnIndex(MediaStore.Audio.Media._ID);
+            int albumColumn = cursor.getColumnIndex(MediaStore.Audio.AudioColumns.ALBUM);
+            int column_index = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA);
+            int singerCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST);
+
+            byte[] picByte;
+            Bitmap songImage = null;
+            long thisId;
+            String thisTitle;
+            String thisAlbum;
+            String pathId;
+            String singer;
+
+            do {
+
+                thisId = cursor.getLong(idColumn);
+                thisTitle = cursor.getString(titleColumn);
+                thisAlbum = cursor.getString(albumColumn);
+                pathId = cursor.getString(column_index);
+                singer = cursor.getString(singerCol);
+
+                Log.d(className,"pathId="+pathId);
+                songImage = null;
+
+                try{
+                    metaRetriver.setDataSource(pathId);
+                }catch(Exception e){
+                    Log.d(className,"error!");
+                    e.printStackTrace();
+                    continue;
+                }
+
+                try {
+                    picByte = metaRetriver.getEmbeddedPicture();
+                    if(picByte!=null){
+
+                        //改圖片大小
+                        songImage = PicUtil.resize(picByte);
+
+                    }
+
+                }
+                catch (Exception e)
+                {
+                    e.printStackTrace();
+                }
+
+
+                Log.d("=======>", "id: " + thisId +
+                        ", title: " + thisTitle +
+                        ", singer: " + singer);
+                songList.add(new Song(thisId, thisTitle, thisAlbum,songImage ,pathId ,singer));
+            } while (cursor.moveToNext());
+
+
+        }
     }
 
 

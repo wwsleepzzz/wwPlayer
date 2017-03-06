@@ -82,7 +82,7 @@ public class PlaylistAdapter extends BaseAdapter {
     }
 
     public void reload(List<Playlist> list){
-//        mList = list;
+        mList = list;
         notifyDataSetChanged();
     }
 

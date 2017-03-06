@@ -25,4 +25,10 @@
     </style>
 
 
+
+    <style name="MyToolBarTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">#AA92ef</item>
+        <item name="colorPrimaryDark">#7868F3</item>
+        <item name="colorAccent">#FFF001</item>
+    </style>
 </resources>

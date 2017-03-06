@@ -39,7 +39,7 @@ public class MyRecyclerViewAdapter extends RecyclerView.Adapter<MyRecyclerViewHo
 
 
   //自定義一個Listener 介面
-  public interface AdapterOnItemClickListener {
+  public interface AdapterOnItemClickInterface {
     void aOnItemClick(View view, int position, MyRecyclerViewHolder holder);
 
 
@@ -50,7 +50,7 @@ public class MyRecyclerViewAdapter extends RecyclerView.Adapter<MyRecyclerViewHo
   private String className = "MyRecyclerViewAdapter";
   public Context mContext;
   public LayoutInflater mLayoutInflater;
-  public AdapterOnItemClickListener mOnItemClickListener;
+  public AdapterOnItemClickInterface mOnItemClickListener;
   public BtnListenerInterface btnListenerInterface;
 
 
@@ -175,7 +175,7 @@ public class MyRecyclerViewAdapter extends RecyclerView.Adapter<MyRecyclerViewHo
 
 
 
-  public void setOnItemClickListener(AdapterOnItemClickListener listener) {
+  public void setOnItemClickListener(AdapterOnItemClickInterface listener) {
     this.mOnItemClickListener = listener;
   }
 
